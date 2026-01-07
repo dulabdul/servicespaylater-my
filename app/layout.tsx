@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { Plus_Jakarta_Sans } from 'next/font/google'; // Modern Font
+import { Plus_Jakarta_Sans } from 'next/font/google';
 import './globals.css';
 import JsonLd from '@/components/layout/JsonLd';
 import { SITE_CONFIG } from '@/data/content';
@@ -12,7 +12,9 @@ const fontSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
+  // PENTING: metadataBase diperlukan agar opengraph-image.tsx bekerja dengan URL absolut
   metadataBase: new URL(SITE_CONFIG.url),
+
   title: {
     default: 'Cashout SPayLater, Boost & Grab Malaysia | ServicesPayLater',
     template: '%s | ServicesPayLater',
@@ -26,6 +28,7 @@ export const metadata: Metadata = {
     'malaysia',
   ],
   authors: [{ name: 'ServicesPayLater Team' }],
+
   openGraph: {
     title: 'Cashout PayLater Pantas & Selamat Malaysia',
     description: SITE_CONFIG.description,
@@ -33,20 +36,18 @@ export const metadata: Metadata = {
     siteName: SITE_CONFIG.name,
     locale: 'ms_MY',
     type: 'website',
-    images: [
-      {
-        url: '/opengraph-image.png',
-        width: 1200,
-        height: 630,
-        alt: SITE_CONFIG.name,
-      },
-    ],
+    // HAPUS bagian images: [...] manual di sini.
+    // Next.js akan otomatis menggunakan app/opengraph-image.tsx
   },
+
   twitter: {
     card: 'summary_large_image',
     title: 'Cashout PayLater Malaysia',
     description: SITE_CONFIG.description,
+    // Images untuk twitter juga akan otomatis diambil dari opengraph-image.tsx
+    // kecuali Anda membuat twitter-image.tsx terpisah.
   },
+
   alternates: {
     canonical: SITE_CONFIG.url,
   },
