@@ -1,13 +1,15 @@
 import { MetadataRoute } from 'next';
 import { SITE_CONFIG } from '@/data/content';
 
-export default function sitemap(): MetadataRoute.Sitemap {
-  return [
-    {
-      url: SITE_CONFIG.url,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 1,
-    },
-  ];
+export default function robots(): MetadataRoute.Robots {
+  return {
+    rules: [
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: '/private/',
+      }
+    ],
+    sitemap: `${SITE_CONFIG.url}/sitemap.xml`,
+  };
 }
