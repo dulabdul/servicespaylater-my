@@ -75,12 +75,12 @@ export const CONTENT = {
     subtitle: "Bukti transaksi berjaya dari pelanggan kami.",
     // Placeholder images for screenshots
     images: [
-      "/images/testimoni-1.jpg",
-      "/images/testimoni-2.jpg",
-      "/images/testimoni-3.jpg",
-      "/images/testimoni-4.jpg",
-      "/images/testimoni-5.jpg",
-      "/images/testimoni-6.jpg",
+      "/images/testimoni-1.jpeg",
+      "/images/testimoni-2.jpeg",
+      "/images/testimoni-3.jpeg",
+      "/images/testimoni-4.jpeg",
+      "/images/testimoni-5.jpeg",
+
     ]
   },
   contact: {
