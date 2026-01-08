@@ -1,15 +1,15 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 import { CONTENT } from '@/data/content';
 import Section from '../ui/Section';
 
-// Helper untuk menentukan kekuatan swipe
-const DRAG_BUFFER = 50;
+// Sensitivity geser (makin kecil makin sensitif)
+const DRAG_BUFFER = 30;
 
 export default function Testimonials() {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -17,61 +17,60 @@ export default function Testimonials() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const testimonials = CONTENT.testimonials.images;
-  const x = useMotionValue(0);
+
+  // Menggunakan ref untuk menampung width container jika diperlukan (optional optimization)
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Handle Responsive Items per View
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
-        setItemsPerView(3);
+        setItemsPerView(3); // Desktop: 3 gambar
       } else if (window.innerWidth >= 640) {
-        setItemsPerView(2);
+        setItemsPerView(2); // Tablet: 2 gambar
       } else {
-        setItemsPerView(1);
+        setItemsPerView(1); // Mobile: 1 gambar
       }
     };
 
-    handleResize();
+    handleResize(); // Set initial
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Batas Maksimal Slide
+  // Limit Max Index agar tidak slide ke area kosong
   const maxIndex = Math.max(0, testimonials.length - itemsPerView);
 
-  // Navigasi Button
-  const nextSlide = () => {
-    if (currentIndex < maxIndex) {
-      setCurrentIndex((prev) => prev + 1);
-    }
+  // Logic Index Update
+  const handleNext = () => {
+    if (currentIndex < maxIndex) setCurrentIndex((prev) => prev + 1);
   };
 
-  const prevSlide = () => {
-    if (currentIndex > 0) {
-      setCurrentIndex((prev) => prev - 1);
-    }
+  const handlePrev = () => {
+    if (currentIndex > 0) setCurrentIndex((prev) => prev - 1);
   };
 
-  // Logic Swipe / Drag
+  // Logic Drag / Swipe End
   const onDragEnd = (event: any, info: any) => {
     const offset = info.offset.x;
     const velocity = info.velocity.x;
 
-    // Swipe Kiri (Next)
+    // Swipe ke Kiri (Next)
     if (offset < -DRAG_BUFFER || velocity < -500) {
       if (currentIndex < maxIndex) {
         setCurrentIndex((prev) => prev + 1);
       }
     }
-    // Swipe Kanan (Prev)
+    // Swipe ke Kanan (Prev)
     else if (offset > DRAG_BUFFER || velocity > 500) {
       if (currentIndex > 0) {
         setCurrentIndex((prev) => prev - 1);
       }
     }
+    // Jika swipe tidak cukup kuat, framer motion akan otomatis 'snap back' karena logic animate x dibawah
   };
 
-  // Logic Lightbox Navigation
+  // Logic Navigasi Lightbox
   const nextLightbox = () => {
     setLightboxIndex((prev) =>
       prev === null ? null : prev === testimonials.length - 1 ? 0 : prev + 1
@@ -96,61 +95,67 @@ export default function Testimonials() {
         <p className='text-gray-600'>{CONTENT.testimonials.subtitle}</p>
       </div>
 
-      {/* --- SLIDER CONTAINER --- */}
-      <div className='relative max-w-6xl mx-auto px-4 sm:px-12'>
-        {/* Tombol Kiri (Hanya muncul jika bukan di awal) */}
+      {/* --- SLIDER AREA --- */}
+      <div
+        className='relative max-w-6xl mx-auto px-0 sm:px-12'
+        ref={containerRef}>
+        {/* Tombol Navigasi Desktop (Hidden di Mobile biar bersih) */}
         {currentIndex > 0 && (
           <button
-            onClick={prevSlide}
-            className='absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white/90 text-primary p-2 rounded-full shadow-lg hover:bg-white transition-all hidden sm:block'
+            onClick={handlePrev}
+            className='absolute left-2 sm:-left-4 top-1/2 -translate-y-1/2 z-20 bg-white text-primary p-2 rounded-full shadow-lg hover:bg-gray-50 transition-all hidden sm:flex'
             aria-label='Previous Slide'>
             <ChevronLeft size={24} />
           </button>
         )}
 
-        {/* Tombol Kanan (Hanya muncul jika belum habis) */}
         {currentIndex < maxIndex && (
           <button
-            onClick={nextSlide}
-            className='absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white/90 text-primary p-2 rounded-full shadow-lg hover:bg-white transition-all hidden sm:block'
+            onClick={handleNext}
+            className='absolute right-2 sm:-right-4 top-1/2 -translate-y-1/2 z-20 bg-white text-primary p-2 rounded-full shadow-lg hover:bg-gray-50 transition-all hidden sm:flex'
             aria-label='Next Slide'>
             <ChevronRight size={24} />
           </button>
         )}
 
-        {/* Track Slider (Draggable) */}
-        <div className='overflow-hidden rounded-xl cursor-grab active:cursor-grabbing'>
+        {/* TRACK SLIDER */}
+        <div className='overflow-hidden w-full touch-pan-y'>
+          {' '}
+          {/* touch-pan-y penting agar vertical scroll halaman tetap jalan */}
           <motion.div
-            className='flex gap-6'
-            drag='x' // Enable Swipe
-            dragConstraints={{ left: 0, right: 0 }} // Snap back effect handled by animate
-            dragElastic={0.2} // Memberikan efek karet saat ditarik
+            className='flex' // HAPUS gap-x disini untuk akurasi matematika
+            drag='x'
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.1}
             onDragEnd={onDragEnd}
-            animate={{ x: `-${currentIndex * (100 / itemsPerView)}%` }} // Logic posisi
+            // Rumus: Geser minus index * (100% / jumlah item per view)
+            animate={{ x: `-${currentIndex * (100 / itemsPerView)}%` }}
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-            style={{
-              width: `${(testimonials.length / itemsPerView) * 100}%`,
-            }}>
+            style={{ width: '100%' }} // Container width 100%
+          >
             {testimonials.map((src, idx) => (
               <div
                 key={idx}
-                className='relative shrink-0 px-2' // Tambah padding dikit biar antar kartu ada jarak aman
-                style={{ width: `${100 / testimonials.length}%` }}>
+                className='shrink-0 p-3' // Gunakan PADDING sebagai pengganti gap
+                style={{
+                  // Lebar item dikunci presisi menggunakan flex-basis
+                  flex: `0 0 ${100 / itemsPerView}%`,
+                }}>
                 <div
-                  className='relative aspect-[9/16] bg-white rounded-xl overflow-hidden shadow-md group border border-gray-100 mx-auto max-w-sm'
-                  onClick={() => setLightboxIndex(idx)} // Click tetap jalan walau ada drag
-                >
+                  className='relative aspect-[9/16] bg-white rounded-xl overflow-hidden shadow-sm border border-gray-100 cursor-pointer group mx-auto w-full max-w-[320px]'
+                  onClick={() => setLightboxIndex(idx)}>
                   <Image
                     src={src}
                     alt={`Bukti transaksi ${idx + 1}`}
                     fill
-                    className='object-cover pointer-events-none' // Penting: pointer-events-none agar gambar tidak ke-drag browser
-                    sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
+                    className='object-cover pointer-events-none' // Mencegah image dragging native browser
+                    sizes='(max-width: 640px) 90vw, (max-width: 1024px) 50vw, 33vw'
                   />
+
                   {/* Overlay Icon */}
-                  <div className='absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center'>
-                    <div className='bg-white/20 backdrop-blur-md p-3 rounded-full'>
-                      <ZoomIn className='text-white w-6 h-6' />
+                  <div className='absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center'>
+                    <div className='bg-white/90 p-2 rounded-full shadow-sm'>
+                      <ZoomIn className='text-primary w-5 h-5' />
                     </div>
                   </div>
                 </div>
@@ -159,7 +164,7 @@ export default function Testimonials() {
           </motion.div>
         </div>
 
-        {/* Dots Indicator */}
+        {/* DOTS INDICATOR */}
         <div className='flex justify-center items-center gap-2 mt-6'>
           {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
             <button
@@ -174,7 +179,7 @@ export default function Testimonials() {
         </div>
       </div>
 
-      {/* --- LIGHTBOX MODAL (Tidak Berubah) --- */}
+      {/* --- LIGHTBOX MODAL (Tetap Sama) --- */}
       <AnimatePresence>
         {lightboxIndex !== null && (
           <motion.div
@@ -184,7 +189,7 @@ export default function Testimonials() {
             className='fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm'
             onClick={() => setLightboxIndex(null)}>
             <button
-              className='absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full z-50'
+              className='absolute top-4 right-4 text-white/70 hover:text-white p-2'
               onClick={(e) => {
                 e.stopPropagation();
                 setLightboxIndex(null);
@@ -193,13 +198,13 @@ export default function Testimonials() {
             </button>
 
             <div
-              className='relative w-full max-w-lg h-full max-h-[90vh] flex items-center justify-center'
+              className='relative w-full max-w-lg h-full max-h-[85vh] flex items-center justify-center'
               onClick={(e) => e.stopPropagation()}>
               <motion.div
                 key={lightboxIndex}
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.2 }}
                 className='relative w-full h-full'>
                 <Image
                   src={testimonials[lightboxIndex]}
@@ -212,22 +217,22 @@ export default function Testimonials() {
               </motion.div>
             </div>
 
+            {/* Lightbox Nav */}
             <button
-              className='absolute left-2 md:left-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3'
+              className='absolute left-2 md:left-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 rounded-full'
               onClick={(e) => {
                 e.stopPropagation();
                 prevLightbox();
               }}>
-              <ChevronLeft size={40} />
+              <ChevronLeft size={32} />
             </button>
-
             <button
-              className='absolute right-2 md:right-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3'
+              className='absolute right-2 md:right-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 bg-white/10 rounded-full'
               onClick={(e) => {
                 e.stopPropagation();
                 nextLightbox();
               }}>
-              <ChevronRight size={40} />
+              <ChevronRight size={32} />
             </button>
           </motion.div>
         )}
