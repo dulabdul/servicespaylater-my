@@ -1,50 +1,74 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 'use client';
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight, ZoomIn } from 'lucide-react';
 import { CONTENT } from '@/data/content';
 import Section from '../ui/Section';
 
+// Helper untuk menentukan kekuatan swipe
+const DRAG_BUFFER = 50;
+
 export default function Testimonials() {
-  // State untuk Slider
   const [currentIndex, setCurrentIndex] = useState(0);
   const [itemsPerView, setItemsPerView] = useState(1);
-
-  // State untuk Lightbox
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const testimonials = CONTENT.testimonials.images;
+  const x = useMotionValue(0);
 
   // Handle Responsive Items per View
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
-        setItemsPerView(3); // Desktop
+        setItemsPerView(3);
       } else if (window.innerWidth >= 640) {
-        setItemsPerView(2); // Tablet
+        setItemsPerView(2);
       } else {
-        setItemsPerView(1); // Mobile
+        setItemsPerView(1);
       }
     };
 
-    // Set initial
     handleResize();
-
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Logic Slider (Boundaries)
+  // Batas Maksimal Slide
   const maxIndex = Math.max(0, testimonials.length - itemsPerView);
 
+  // Navigasi Button
   const nextSlide = () => {
-    setCurrentIndex((prev) => (prev >= maxIndex ? 0 : prev + 1));
+    if (currentIndex < maxIndex) {
+      setCurrentIndex((prev) => prev + 1);
+    }
   };
 
   const prevSlide = () => {
-    setCurrentIndex((prev) => (prev === 0 ? maxIndex : prev - 1));
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+    }
+  };
+
+  // Logic Swipe / Drag
+  const onDragEnd = (event: any, info: any) => {
+    const offset = info.offset.x;
+    const velocity = info.velocity.x;
+
+    // Swipe Kiri (Next)
+    if (offset < -DRAG_BUFFER || velocity < -500) {
+      if (currentIndex < maxIndex) {
+        setCurrentIndex((prev) => prev + 1);
+      }
+    }
+    // Swipe Kanan (Prev)
+    else if (offset > DRAG_BUFFER || velocity > 500) {
+      if (currentIndex > 0) {
+        setCurrentIndex((prev) => prev - 1);
+      }
+    }
   };
 
   // Logic Lightbox Navigation
@@ -74,45 +98,53 @@ export default function Testimonials() {
 
       {/* --- SLIDER CONTAINER --- */}
       <div className='relative max-w-6xl mx-auto px-4 sm:px-12'>
-        {/* Navigation Buttons (Slider) */}
-        <button
-          onClick={prevSlide}
-          className='absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-primary p-2 rounded-full shadow-lg backdrop-blur-sm transition-all hidden sm:block'
-          aria-label='Previous Slide'>
-          <ChevronLeft size={24} />
-        </button>
+        {/* Tombol Kiri (Hanya muncul jika bukan di awal) */}
+        {currentIndex > 0 && (
+          <button
+            onClick={prevSlide}
+            className='absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white/90 text-primary p-2 rounded-full shadow-lg hover:bg-white transition-all hidden sm:block'
+            aria-label='Previous Slide'>
+            <ChevronLeft size={24} />
+          </button>
+        )}
 
-        <button
-          onClick={nextSlide}
-          className='absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white/80 hover:bg-white text-primary p-2 rounded-full shadow-lg backdrop-blur-sm transition-all hidden sm:block'
-          aria-label='Next Slide'>
-          <ChevronRight size={24} />
-        </button>
+        {/* Tombol Kanan (Hanya muncul jika belum habis) */}
+        {currentIndex < maxIndex && (
+          <button
+            onClick={nextSlide}
+            className='absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white/90 text-primary p-2 rounded-full shadow-lg hover:bg-white transition-all hidden sm:block'
+            aria-label='Next Slide'>
+            <ChevronRight size={24} />
+          </button>
+        )}
 
-        {/* Slider Track */}
-        <div className='overflow-hidden rounded-xl'>
+        {/* Track Slider (Draggable) */}
+        <div className='overflow-hidden rounded-xl cursor-grab active:cursor-grabbing'>
           <motion.div
             className='flex gap-6'
-            initial={false}
-            animate={{ x: `-${currentIndex * (100 / itemsPerView)}%` }} // Geser berdasarkan persentase lebar item
+            drag='x' // Enable Swipe
+            dragConstraints={{ left: 0, right: 0 }} // Snap back effect handled by animate
+            dragElastic={0.2} // Memberikan efek karet saat ditarik
+            onDragEnd={onDragEnd}
+            animate={{ x: `-${currentIndex * (100 / itemsPerView)}%` }} // Logic posisi
             transition={{ type: 'spring', stiffness: 300, damping: 30 }}
             style={{
-              width: `${(testimonials.length / itemsPerView) * 100}%`, // Lebar total track relatif terhadap container
+              width: `${(testimonials.length / itemsPerView) * 100}%`,
             }}>
             {testimonials.map((src, idx) => (
               <div
                 key={idx}
-                className='relative shrink-0'
-                style={{ width: `${100 / testimonials.length}%` }} // Setiap item mengambil porsi yang sama dari total track
-              >
+                className='relative shrink-0 px-2' // Tambah padding dikit biar antar kartu ada jarak aman
+                style={{ width: `${100 / testimonials.length}%` }}>
                 <div
-                  className='relative aspect-[9/16] bg-white rounded-xl overflow-hidden shadow-md group cursor-pointer border border-gray-100 mx-auto max-w-sm'
-                  onClick={() => setLightboxIndex(idx)}>
+                  className='relative aspect-[9/16] bg-white rounded-xl overflow-hidden shadow-md group border border-gray-100 mx-auto max-w-sm'
+                  onClick={() => setLightboxIndex(idx)} // Click tetap jalan walau ada drag
+                >
                   <Image
                     src={src}
                     alt={`Bukti transaksi ${idx + 1}`}
                     fill
-                    className='object-cover transition-transform duration-500 group-hover:scale-105'
+                    className='object-cover pointer-events-none' // Penting: pointer-events-none agar gambar tidak ke-drag browser
                     sizes='(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw'
                   />
                   {/* Overlay Icon */}
@@ -127,37 +159,22 @@ export default function Testimonials() {
           </motion.div>
         </div>
 
-        {/* Mobile Navigation & Dots */}
+        {/* Dots Indicator */}
         <div className='flex justify-center items-center gap-2 mt-6'>
-          {/* Tombol nav mobile only */}
-          <button
-            onClick={prevSlide}
-            className='sm:hidden p-2 text-gray-500'>
-            <ChevronLeft />
-          </button>
-
-          <div className='flex gap-2'>
-            {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentIndex(idx)}
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  currentIndex === idx ? 'w-8 bg-primary' : 'w-2 bg-gray-300'
-                }`}
-                aria-label={`Go to slide ${idx + 1}`}
-              />
-            ))}
-          </div>
-
-          <button
-            onClick={nextSlide}
-            className='sm:hidden p-2 text-gray-500'>
-            <ChevronRight />
-          </button>
+          {Array.from({ length: maxIndex + 1 }).map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentIndex(idx)}
+              className={`h-2 rounded-full transition-all duration-300 ${
+                currentIndex === idx ? 'w-8 bg-primary' : 'w-2 bg-gray-300'
+              }`}
+              aria-label={`Go to slide ${idx + 1}`}
+            />
+          ))}
         </div>
       </div>
 
-      {/* --- LIGHTBOX MODAL --- */}
+      {/* --- LIGHTBOX MODAL (Tidak Berubah) --- */}
       <AnimatePresence>
         {lightboxIndex !== null && (
           <motion.div
@@ -165,31 +182,25 @@ export default function Testimonials() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className='fixed inset-0 z-[60] bg-black/95 flex items-center justify-center p-4 backdrop-blur-sm'
-            onClick={() => setLightboxIndex(null)} // Close on background click
-          >
-            {/* Close Button */}
+            onClick={() => setLightboxIndex(null)}>
             <button
-              className='absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full hover:bg-white/10 transition-colors z-50'
+              className='absolute top-4 right-4 text-white/70 hover:text-white p-2 rounded-full z-50'
               onClick={(e) => {
                 e.stopPropagation();
                 setLightboxIndex(null);
-              }}
-              aria-label='Close Lightbox'>
+              }}>
               <X size={32} />
             </button>
 
-            {/* Main Image Container */}
             <div
               className='relative w-full max-w-lg h-full max-h-[90vh] flex items-center justify-center'
-              onClick={(e) => e.stopPropagation()} // Prevent close when clicking image area
-            >
+              onClick={(e) => e.stopPropagation()}>
               <motion.div
-                key={lightboxIndex} // Key change triggers animation
+                key={lightboxIndex}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.3 }}
                 className='relative w-full h-full'>
-                {/* Placeholder check handled in image src logic or config */}
                 <Image
                   src={testimonials[lightboxIndex]}
                   alt='Testimonial Fullscreen'
@@ -201,9 +212,8 @@ export default function Testimonials() {
               </motion.div>
             </div>
 
-            {/* Lightbox Navigation Buttons */}
             <button
-              className='absolute left-2 md:left-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 rounded-full hover:bg-white/10 transition-colors'
+              className='absolute left-2 md:left-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3'
               onClick={(e) => {
                 e.stopPropagation();
                 prevLightbox();
@@ -212,18 +222,13 @@ export default function Testimonials() {
             </button>
 
             <button
-              className='absolute right-2 md:right-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3 rounded-full hover:bg-white/10 transition-colors'
+              className='absolute right-2 md:right-8 top-1/2 -translate-y-1/2 text-white/70 hover:text-white p-3'
               onClick={(e) => {
                 e.stopPropagation();
                 nextLightbox();
               }}>
               <ChevronRight size={40} />
             </button>
-
-            {/* Counter */}
-            <div className='absolute bottom-6 left-1/2 -translate-x-1/2 text-white/80 text-sm font-medium bg-black/50 px-3 py-1 rounded-full'>
-              {lightboxIndex + 1} / {testimonials.length}
-            </div>
           </motion.div>
         )}
       </AnimatePresence>
